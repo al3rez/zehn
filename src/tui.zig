@@ -1,12 +1,11 @@
 const std = @import("std");
 const Io = std.Io;
 const posix = std.posix;
-const linux = std.os.linux;
 const scan = @import("scan.zig");
 const fuzzy = @import("fuzzy.zig");
 const uni = @import("unicode.zig");
 
-const TIOCGWINSZ: u32 = 0x5413;
+extern "c" fn ioctl(fd: c_int, request: c_ulong, ...) c_int;
 
 /// Allocation failure while building a frame is unrecoverable; crash loudly
 /// rather than silently rendering a corrupt screen. (Terminal-cleanup paths
@@ -24,7 +23,7 @@ fn restoreTerminal() void {
     if (!g_active) return;
     g_active = false;
     const seq = "\x1b[?25h\x1b[?1049l"; // show cursor, leave alt-screen
-    _ = linux.write(1, seq.ptr, seq.len);
+    _ = std.c.write(1, seq.ptr, seq.len);
     posix.tcsetattr(0, .FLUSH, g_orig) catch {};
 }
 
@@ -86,8 +85,13 @@ pub const Tui = struct {
 
     fn winsize(self: *Tui) void {
         var ws: posix.winsize = undefined;
-        const r = linux.ioctl(0, TIOCGWINSZ, @intFromPtr(&ws));
-        if (r == 0 and ws.row > 0) {
+        // CDXC:AgentHistorySearch 2026-05-29-12:49:
+        // zehn runs inside Ghostex on macOS as well as ordinary Linux terminals.
+        // Terminal sizing must use libc ioctl instead of Linux syscall numbers;
+        // macOS rejects those with SIGSYS after the alternate screen is entered,
+        // leaving users with a blank terminal.
+        const rc = ioctl(0, @intCast(posix.T.IOCGWINSZ), &ws);
+        if (rc == 0 and ws.row > 0 and ws.col > 0) {
             self.rows = ws.row;
             self.cols = ws.col;
         }
