@@ -80,6 +80,7 @@ zehn --project   # print  agent <tab> project <tab> text
 zehn --agent claude   # only show one agent: claude, codex, pi, or opencode
 zehn --opencode       # shorthand for --agent opencode
 zehn --list      # dump everything, no UI
+zehn --last-active # sort by last active time instead of fuzzy score
 zehn update      # update to the latest master build
 zehn --version
 ```
